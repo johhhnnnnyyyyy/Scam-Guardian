@@ -1,79 +1,226 @@
 import { randomUUID } from 'node:crypto';
+import { normalize, coverageOf, worstCoverage } from './normalize.js';
+import { REGISTRY, supportedLanguages } from './languages.js';
+import en from './packs/en.js';
+import hi from './packs/hi.js';
+import ta from './packs/ta.js';
 
-export const languages = ['en-IN','hi-IN','ta-IN'];
-export const rank = {safe:0,careful:1,danger:2};
-const rules = [
- ['authority','Authority claim', /\b(cbi|police|customs|trai|bank officer|cyber cell|enforcement directorate)\b|पुलिस|सीबीआई|बैंक अधिकारी|காவல்|போலீஸ்/iu],
- ['threat','Arrest or disconnection threat', /\b(arrest(?:ed)?|disconnect|block your sim|cut off|drugs in.*parcel)\b|गिरफ्तार|गिरफ़्तार|बंद कर|கைது|துண்டிக்க/iu],
- ['urgency','Pressure to act quickly', /\b(right now|immediately|within.*minutes|(?:one|two|three|four|five|ten|\d+) minutes? (?:left|remaining)|urgent|abhi|turant)\b|अभी|तुरंत|உடனே|உடனடியாக/iu],
- ['secrecy','Asked to keep it secret', /\b(don.t tell|do not tell|never tell|tell no one|keep.*secret|kisi ko mat|family ko mat)\b|किसी को मत|परिवार को मत|யாரிடமும்.*சொல்ல/iu],
- ['payment','Money transfer request', /\b(transfer|send money|pay|payment|safe account|paise bhej|paisa bhej)\b|पैसे भेज|पैसे जमा|ट्रांसफर|பணம்.*அனுப்ப|பணத்தை.*அனுப்ப/iu],
- ['credential','Secret or identity request', /\b(?:tell|share|give|send|bata|batao)\b.{0,35}\b(?:otp|pin|password|aadhaar|pan|card)\b|\b(?:otp|pin|password)\b.{0,25}\b(?:batao|bataiye|sollunga|sollu|kodu)\b|(?:ओटीपी|पिन|पासवर्ड).{0,20}(?:बताइ|बताओ|दीजिए)|(?:ஓடிபி|கடவுச்சொல்).{0,25}(?:சொல்ல|தர)/iu],
- ['remote','App installation or screen sharing', /\b(install.*(?:apk|anydesk|app)|share.*screen|screen.?shar|download.*apk)\b|ऐप इंस्टॉल|स्क्रीन शेयर|செயலி.*நிறுவ|திரையை.*பகிர/iu],
- ['camera','Asked to stay on camera', /\b(stay on camera|keep.*camera on|do not disconnect)\b|कैमरा चालू|கேமரா.*இரு/iu],
- ['impossible','Digital arrest or payment to avoid arrest', /\b(digital arrest|arrest.*video call|pay to avoid arrest|transfer.*to verify|transfer.*for verification)\b|डिजिटल अरेस्ट|गिरफ्तारी से बचने.*पैसे|டிஜிட்டல் கைது/iu],
- ['family_emergency','Claimed family emergency', /\b(?:your|my) (?:son|daughter|husband|wife|father|mother|child|family member).{0,50}(?:arrested|custody|hospital|accident|emergency)|\b(?:beta|beti|amma|appa).{0,40}(?:arrest|hospital|accident)|(?:बेटा|बेटी|परिवार).{0,40}(?:गिरफ्तार|अस्पताल|दुर्घटना)|(?:மகன்|மகள்|குடும்பம்).{0,40}(?:கைது|மருத்துவமனை|விபத்து)/iu],
-];
-// Narrow educational/negative clauses are excluded, not arbitrary whole transcripts.
-function advice(clause) {
- if(/\bif you\b/iu.test(clause)) return false;
- return /\b(never (?:share|send|pay|install|ask)|will never|will not ask|won.t ask|do not need|(?:no|not under) digital arrest|don.t (?:share|send|pay|install)|do not (?:share|send|pay|install))\b|(?:ओटीपी|पैसे|पासवर्ड|पिन).*मत|(?:பகிர|அனுப்ப).*வேண்டாம்/iu.test(clause);
+export { coverageOf } from './normalize.js';
+export { supportedLanguages as languages } from './languages.js';
+export const rank = { safe: 0, careful: 1, danger: 2 };
+const WINDOW_MS = 60000;
+const LEDGER_LIMIT = 200;
+
+// Language packs are data (src/packs). Detection runs over the UNION of every supported pack on every clause, so
+// code-mixed speech is matched whichever language each word is in; a pack never needs a language tag to apply.
+export const PACKS = [en, hi, ta];
+const union = (lists, flags = 'iu') => new RegExp(lists.flat().map(s => `(?:${s})`).join('|') || '(?!)', flags);
+const gather = key => PACKS.flatMap(p => p[key] || []);
+const gatherAct = key => PACKS.flatMap(p => p.acts?.[key] || []);
+
+export const tacticLabels = {
+ authority: 'Authority claim', threat: 'Arrest, block or disconnection threat', urgency: 'Pressure to act quickly', secrecy: 'Asked to keep it secret',
+ payment: 'Money transfer request', credential: 'Secret code request', identity: 'Identity document request', remote: 'App, link or screen-sharing request',
+ camera: 'Asked to stay on camera or on the line', impossible: 'Something no real institution asks for', advance_fee: 'Fee demanded before you receive money',
+ prize: 'Unexpected prize or lottery win', investment_bait: 'Guaranteed returns or paid tasks', extortion: 'Threat to shame you into paying', family_emergency: 'Claimed family emergency',
+};
+
+// Spoken or written amounts: ₹50,000 · Rs 500 · 50,000 rupees · fifty thousand rupees · 2 lakh · ५० हज़ार (digits normalised first).
+export const AMOUNT = /(?:₹|\brs\.?|\binr\b|रु\.?|ரூ\.?)\s*\d[\d,]*(?:\.\d{1,2})?|\b\d[\d,]*(?:\.\d+)?\s*(?:rupees?|rupaye|rupay|rs|lakhs?|crores?|thousand|hazaa?r)\b|\d[\d,]*\s*(?:रुपये|रुपए|हजार|लाख|करोड|ரூபாய்|லட்சம்|ஆயிரம்)|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|twenty|fifty|hundred)\s+(?:thousand|lakh|crore)(?:\s+rupees?)?\b/iu;
+const SECRET = union(gather('secret'), 'giu'), IDENTITY = union(gather('identity'), 'giu'), PAN_UPPER = /\bPAN\b/gu, DEMAND = union(gather('demand'), 'giu');
+const PAYMENT_WORD = union(PACKS.map(p => p.tactics.payment || []));
+const AMOUNT_VERB = /\b(?:send|pay|transfer|deposit|bhej\w*)\b|भेज|जमा|அனுப்ப|கட்ட|செலுத்த/iu;
+// Entering a UPI PIN to complete a payment you started is normal; only other secret requests count.
+const OWN_PAYMENT = /\bto (?:complete|make|confirm) (?:the |your |this )?payment\b/iu;
+
+function near(text, a, b, distance = 45) {
+ const pa = [...text.matchAll(a)].map(m => m.index), pb = [...text.matchAll(b)].map(m => m.index);
+ return pa.some(i => pb.some(j => Math.abs(i - j) <= distance));
 }
+const compiled = Object.keys(tacticLabels).map(tactic => {
+ if (tactic === 'credential') return { tactic, test: t => !OWN_PAYMENT.test(t) && near(t, SECRET, DEMAND) };
+ if (tactic === 'identity') return { tactic, test: t => near(t, IDENTITY, DEMAND) || near(t, PAN_UPPER, DEMAND) };
+ if (tactic === 'payment') return { tactic, test: t => PAYMENT_WORD.test(t) || (AMOUNT.test(t) && AMOUNT_VERB.test(t)) };
+ const re = union(PACKS.map(p => p.tactics[tactic] || []));
+ return { tactic, test: t => re.test(t) };
+});
+
+// Clause boundaries: punctuation, conjunctions, and the point where a new request starts. Speech recognition
+// output is often unpunctuated, so a negated safety line must not swallow the demand that follows it.
+const SEPARATORS = new RegExp(`(?<!\\brs)\\.(?!\\d)|[!?।|\\n;:]+|,(?!\\d)|${gather('separators').join('|')}`, 'giu');
+const BEFORE_DEMAND = new RegExp(`(?<!\\b(?:never|not|don'?t|dont|to|you|will|the|a|an|your|my|our|this|that|for|of|any|no)\\s*)\\s(?=${gather('demandStart').join('|') || '(?!)'})`, 'giu');
+const AFTER_IMPERATIVE = new RegExp(`(?<=(?:${gather('imperativeEnds').join('|')}))\\s+(?=\\S)`, 'giu');
+
+export function splitClauses(text) {
+ return String(text).split(SEPARATORS).flatMap(part => (part || '').split(BEFORE_DEMAND)).flatMap(part => part.split(AFTER_IMPERATIVE)).map(x => x.trim()).filter(Boolean);
+}
+
+const ADVICE = union(gather('advice')), ADVICE_EXCEPT = union(gather('adviceExceptions'));
+// Narrow educational, negated or official-channel clauses are excluded clause by clause, never whole transcripts.
+export function advice(clause) {
+ const t = normalize(clause);
+ return !ADVICE_EXCEPT.test(t) && ADVICE.test(t);
+}
+
+// Dialogue act of a clause (B-5). Reported and narrated clauses produce WEAK evidence: shown, but unable to escalate
+// on their own. A clause aimed at the listener ("you", "aap", "unga", imperative forms) is never reported or narration.
+const REPORTED = union(gatherAct('reported')), NARRATION = union(gatherAct('narration')), DEMAND_ACT = union(gatherAct('demand')), SECOND_PERSON = union(gatherAct('secondPerson'));
+export function classifyAct(clause) {
+ const t = normalize(clause).trim();
+ if (advice(t)) return 'advice';
+ const toListener = SECOND_PERSON.test(t) || DEMAND_ACT.test(t);
+ if (REPORTED.test(t) && !toListener) return 'reported';
+ if (DEMAND_ACT.test(t)) return 'demand';
+ if (NARRATION.test(t) && !toListener) return 'narration';
+ if (/\?\s*$/.test(t)) return 'question';
+ return 'other';
+}
+const WEAK_ACTS = new Set(['reported', 'narration']);
+
 export function analyze(segments) {
- const flags=[];
- for(const s of segments) {
-  for(const clause of s.text.split(/[.!?।\n]+|\bbut\b|\band\b/iu).filter(Boolean)) {
-   if(advice(clause)) continue;
-   for(const [tactic,label,re] of rules) if(re.test(clause) && !flags.some(f=>f.tactic===tactic && f.segmentId===s.id)) flags.push({tactic,label,segmentId:s.id,quote:s.text,source:'rule'});
+ const flags = [];
+ const add = f => { if (!flags.some(x => x.tactic === f.tactic && x.segmentId === f.segmentId && x.grade === f.grade)) flags.push(f); };
+ const scan = (text, segment, quote, related) => {
+  if (advice(text)) return;
+  const act = classifyAct(text), grade = WEAK_ACTS.has(act) ? 'weak' : 'strong', n = normalize(text);
+  for (const { tactic, test } of compiled) if (test(n)) add({ tactic, label: tacticLabels[tactic], segmentId: segment.id, quote, source: 'rule', act, grade, ...(related ? { relatedSegmentIds: related } : {}) });
+ };
+ for (const s of segments) {
+  const clauses = splitClauses(s.text);
+  clauses.forEach(clause => scan(clause, s, clauses.length === 1 ? s.text : clause));
+  // A comma or conjunction can separate the parts of one request ("Mom, I had an accident"; "the OTP that came, tell
+  // me"): adjacent clause pairs are also checked, for tactics neither half shows alone.
+  for (let i = 1; i < clauses.length; i++) {
+   const a = clauses[i - 1], b = clauses[i];
+   if (advice(a) || advice(b)) continue;
+   const pair = `${a} ${b}`, na = normalize(a), nb = normalize(b), np = normalize(pair);
+   const act = classifyAct(pair), grade = WEAK_ACTS.has(act) ? 'weak' : 'strong';
+   for (const { tactic, test } of compiled) if (!test(na) && !test(nb) && test(np)) add({ tactic, label: tacticLabels[tactic], segmentId: s.id, quote: pair, source: 'rule', act, grade });
   }
  }
- // A speech boundary can cut a request in half. Match only adjacent, unfinished
- // utterances within ten seconds; attach each original fragment as evidence.
- for(let i=1;i<segments.length;i++){
-  const a=segments[i-1],b=segments[i];
-  if(b.at-a.at>10000||/[.!?।]$/.test(a.text.trim()))continue;
-  const joined=`${a.text} ${b.text}`;
-  if(advice(joined))continue;
-  for(const [tactic,label,re] of rules){
-   if(!['credential','impossible','remote'].includes(tactic)||re.test(a.text)||re.test(b.text)||!re.test(joined))continue;
-   for(const s of [a,b])if(!flags.some(f=>f.tactic===tactic&&f.segmentId===s.id))flags.push({tactic,label,segmentId:s.id,quote:s.text,source:'rule',relatedSegmentIds:[a.id,b.id]});
+ // A speech boundary can cut a request in half. Match only adjacent, unfinished utterances within ten seconds.
+ for (let i = 1; i < segments.length; i++) {
+  const a = segments[i - 1], b = segments[i];
+  if (b.at - a.at > 10000 || /[.!?।]$/.test(a.text.trim())) continue;
+  const joined = `${a.text} ${b.text}`;
+  if (advice(joined)) continue;
+  const na = normalize(a.text), nb = normalize(b.text), nj = normalize(joined);
+  const act = classifyAct(joined), grade = WEAK_ACTS.has(act) ? 'weak' : 'strong';
+  for (const { tactic, test } of compiled) {
+   if (test(na) || test(nb) || !test(nj)) continue;
+   for (const s of [a, b]) add({ tactic, label: tacticLabels[tactic], segmentId: s.id, quote: s.text, source: 'rule', act, grade, relatedSegmentIds: [a.id, b.id] });
   }
  }
- return {risk:riskFor(flags),flags};
+ return { risk: riskFor(flags), flags };
 }
+
+// Risk combinations as data (B-4). Each rule: every tactic in `all`, plus at least one of `any` when given.
+// Only STRONG evidence counts. Contradiction features come from official advisories: TRAI does not call about
+// disconnection; police and agencies do not arrest on video calls; a UPI PIN or QR scan is never needed to receive.
+export const DANGER_RULES = [
+ { all: ['impossible'] }, { all: ['credential'] }, { all: ['advance_fee'] }, { all: ['extortion'] },
+ { all: ['remote', 'payment'] }, { all: ['remote', 'threat'] }, { all: ['remote', 'credential'] },
+ { all: ['authority', 'payment'], any: ['secrecy', 'threat'] },
+ { all: ['authority', 'threat'], any: ['secrecy', 'camera'] },
+ { all: ['identity'], any: ['authority', 'urgency', 'payment', 'secrecy', 'threat', 'prize'] },
+ { all: ['family_emergency', 'payment'] }, { all: ['family_emergency', 'secrecy'] },
+ { all: ['prize'], any: ['payment', 'credential', 'identity'] },
+ { all: ['investment_bait', 'payment'] },
+ { all: ['threat', 'credential'] },
+];
+const remoteToolQuote = /\b(?:apk|anydesk|teamviewer|rustdesk|quick ?support)\b/i;
+const traiDisconnect = f => f.tactic === 'authority' && /\b(?:trai|dot)\b/i.test(f.quote);
+
 export function riskFor(flags) {
- const t=new Set(flags.map(f=>f.tactic));
- if(t.has('impossible')||t.has('credential')||(t.has('remote')&&(t.has('payment')||flags.some(f=>/apk|anydesk/i.test(f.quote))))||(t.has('authority')&&t.has('payment')&&(t.has('secrecy')||t.has('threat')))) return 'danger';
- return [...t].some(x=>x!=='payment')?'careful':'safe';
+ // A reported or narrated PRETEXT ("Mom, I had an accident", "my son is in custody") becomes decisive as soon as the
+ // same window holds a strong ASK for money, a secret, an app or an identity document. Narration alone stays calm.
+ const STRONG_ASK = new Set(['payment', 'credential', 'remote', 'identity', 'advance_fee']), PRETEXT = new Set(['family_emergency', 'authority', 'threat', 'prize', 'investment_bait', 'secrecy', 'urgency', 'camera']);
+ const hasAsk = flags.some(f => f.grade !== 'weak' && STRONG_ASK.has(f.tactic));
+ const strong = flags.filter(f => f.grade !== 'weak' || (hasAsk && PRETEXT.has(f.tactic)));
+ const t = new Set(strong.map(f => f.tactic)), has = x => t.has(x);
+ if (DANGER_RULES.some(r => r.all.every(has) && (!r.any || r.any.some(has)))) return 'danger';
+ if (has('remote') && strong.some(f => f.tactic === 'remote' && remoteToolQuote.test(f.quote))) return 'danger';
+ if (has('threat') && strong.some(traiDisconnect)) return 'danger';
+ if ([...t].some(x => x !== 'payment')) return 'careful';
+ // Weak evidence alone is shown but only asks for care when it adds up to two different tactics.
+ const weak = new Set(flags.filter(f => f.grade === 'weak' && f.tactic !== 'payment').map(f => f.tactic));
+ return weak.size >= 2 ? 'careful' : 'safe';
 }
-export function createSession(language,mode,now=Date.now()) {
- return {id:randomUUID(),createdAt:now,expiresAt:now+900000,language,mode,risk:'safe',status:'waiting',segments:[],flags:[],firstWarningAt:null,sharing:false,classifier:'rules',llmStatus:'not configured'};
+
+export function createSession(language, mode, now = Date.now()) {
+ return { id: randomUUID(), createdAt: now, expiresAt: now + 900000, language, mode, risk: 'safe', status: 'waiting', segments: [], flags: [], coverage: 'supported', firstWarningAt: null, sharing: false, classifier: 'rules', llmStatus: 'not configured' };
 }
-export function appendSegment(s,text,at=Date.now(),id=randomUUID()) {
- if(s.segments.some(x=>x.id===id)) return s;
- s.segments.push({id,text,at}); s.segments=s.segments.slice(-200);
- const result=analyze(s.segments.filter(x=>at-x.at<=60000));
- if(rank[result.risk]>=rank[s.risk]) {s.risk=result.risk;s.flags=result.flags;}
- if(s.risk!=='safe'&&!s.firstWarningAt) s.firstWarningAt=at;
- s.status='analyzed'; return s;
+
+// Append-only evidence ledger: what justified an escalation stays visible after the 60-second window moves on.
+function record(s, flags, at) {
+ for (const f of flags) if (!s.flags.some(x => x.tactic === f.tactic && x.segmentId === f.segmentId && x.source === f.source)) s.flags.push({ ...f, at });
+ if (s.flags.length > LEDGER_LIMIT) s.flags = s.flags.slice(-LEDGER_LIMIT);
 }
+const recentOf = (s, now) => s.segments.filter(x => now - x.at <= WINDOW_MS);
+function raise(s, risk, at) {
+ if (rank[risk] > rank[s.risk]) s.risk = risk;
+ if (s.risk !== 'safe' && !s.firstWarningAt) s.firstWarningAt = at;
+}
+
+export function appendSegment(s, text, at = Date.now(), id = randomUUID()) {
+ if (s.segments.some(x => x.id === id)) return s;
+ s.segments.push({ id, text, at, coverage: coverageOf(text) });
+ s.segments = s.segments.slice(-200);
+ const recent = recentOf(s, at);
+ const result = analyze(recent);
+ record(s, result.flags, at);
+ raise(s, result.risk, at);
+ // Latches for the session, like risk; the window text is checked too so markers spread over several lines still count.
+ s.coverage = worstCoverage([s.coverage || 'supported', s.segments.at(-1).coverage, coverageOf(recent.map(x => x.text).join(' '))]);
+ s.status = 'analyzed';
+ return s;
+}
+
 export function intervention(s) {
- const latest=s.segments.at(-1)?.at??Date.now(),recent=s.segments.filter(x=>latest-x.at<=60000),currentFlags=analyze(recent).flags;
- const text=recent.map(x=>x.text).join(' ');
- const payment=currentFlags.some(f=>f.tactic==='payment');
- const amount=/(?:₹|INR|Rs\.?)\s*[\d,]+(?:\.\d{1,2})?/iu.test(text);
- return {askCodeWord:currentFlags.some(f=>f.tactic==='family_emergency'),coolingOff:payment&&amount};
+ const latest = s.segments.at(-1)?.at ?? Date.now(), recent = recentOf(s, latest), currentFlags = analyze(recent).flags;
+ const text = normalize(recent.map(x => x.text).join(' '));
+ const payment = currentFlags.some(f => f.tactic === 'payment');
+ return { askCodeWord: currentFlags.some(f => f.tactic === 'family_emergency' && f.grade !== 'weak'), coolingOff: payment && AMOUNT.test(text) };
 }
-export function mergeGroundedFlags(s,flags,now=Date.now()){
- const recent=s.segments.filter(x=>now-x.at<=60000);
- const grounded=flags.filter(f=>recent.some(seg=>seg.id===f.segmentId&&seg.text.includes(f.quote)));
- const combined=[...analyze(recent).flags,...grounded],risk=riskFor(combined);
- if(rank[risk]>=rank[s.risk]){s.risk=risk;s.flags=combined.slice(-40);if(risk!=='safe'&&!s.firstWarningAt)s.firstWarningAt=now;}
+
+// The single grounding validator for model-proposed evidence. A model flag must quote the transcript exactly,
+// must not sit in a negated or advice clause, and cannot create danger without rule corroboration.
+export function groundedFlags(segments, flags) {
+ return flags.filter(f => {
+  const seg = segments.find(x => x.id === f.segmentId);
+  if (!seg || typeof f.quote !== 'string' || f.quote.trim().length < 5 || !seg.text.includes(f.quote) || !Object.hasOwn(tacticLabels, f.tactic)) return false;
+  const clauses = splitClauses(seg.text).filter(c => c.includes(f.quote) || f.quote.includes(c));
+  return !advice(f.quote) && !clauses.some(advice);
+ }).map(f => ({ tactic: f.tactic, label: tacticLabels[f.tactic], segmentId: f.segmentId, quote: f.quote, source: 'llm' }));
 }
-export function familyView(s) { return {risk:s.risk,status:s.status,hasSpeech:s.segments.length>0,language:s.language,reasons:[...new Set(s.flags.map(f=>f.label))],updatedAt:s.segments.at(-1)?.at||s.createdAt,expiresAt:s.expiresAt,mode:s.mode}; }
+
+const SINGLE_TRIGGER = new Set(['credential', 'impossible']);
+export function mergeGroundedFlags(s, flags, now = Date.now()) {
+ const recent = recentOf(s, now);
+ const ruleFlags = analyze(recent).flags, grounded = groundedFlags(recent, flags);
+ // A model-only secret-code or digital-arrest flag needs the same tactic from the rules before it can decide risk.
+ const decisive = grounded.filter(f => !SINGLE_TRIGGER.has(f.tactic) || ruleFlags.some(r => r.tactic === f.tactic));
+ let risk = riskFor([...ruleFlags, ...decisive]);
+ if (grounded.length && risk === 'safe') risk = 'careful'; // grounded model evidence still asks for caution
+ if (risk === 'danger' && riskFor(ruleFlags) !== 'danger' && new Set(ruleFlags.map(f => f.tactic)).size < 2) risk = 'careful';
+ record(s, grounded, now);
+ raise(s, risk, now);
+}
+
+// Explicit allow-list: the profile capability and internal state never leave the server.
+const SESSION_FIELDS = ['id', 'createdAt', 'expiresAt', 'language', 'mode', 'risk', 'status', 'segments', 'flags', 'coverage', 'firstWarningAt', 'sharing', 'classifier', 'llmStatus', 'codeWordConfigured', 'coolingOffUntil', 'askCodeWord', 'trustedVoice', 'health', 'gaps', 'clock'];
+export function sessionView(s) {
+ const view = Object.fromEntries(SESSION_FIELDS.filter(key => key in s).map(key => [key, s[key]]));
+ if (s.health) view.health = { ...s.health, llm: s.llmStatus };
+ return view;
+}
+
+export function familyView(s) {
+ return { risk: s.risk, status: s.status, hasSpeech: s.segments.length > 0, language: s.language, coverage: s.coverage || 'supported', health: s.health?.stt || null, gapCount: s.gaps?.length || 0, gapSeconds: Math.round((s.gaps || []).reduce((a, g) => a + g.endMs - g.startMs, 0) / 100) / 10, reasons: [...new Set(s.flags.filter(f => f.grade !== 'weak').map(f => f.label))], updatedAt: s.segments.at(-1)?.at || s.createdAt, expiresAt: s.expiresAt, mode: s.mode };
+}
+
 export function evidencePack(s) {
- const text=s.segments.map(x=>x.text).join('\n');
- const upiIds=[...text.matchAll(/[\w.-]+@[a-z][a-z0-9]*/gi)].filter(match=>!/\.[a-z]{2,}\b/i.test(text.slice(match.index+match[0].length,match.index+match[0].length+8))).map(match=>match[0]);
- return {schemaVersion:1,sessionId:s.id,createdAt:new Date(s.createdAt).toISOString(),exportedAt:new Date().toISOString(),language:s.language,risk:s.risk,provenance:['demo','text'].includes(s.mode)?'synthetic transcript':'Gnani Prisma transcript',classifier:s.classifier,flags:s.flags,segments:s.segments,entities:{unverified:true,amounts:text.match(/(?:₹|INR|Rs\.?)\s*[\d,]+(?:\.\d{1,2})?/gi)||[],upiIds,numericIdentifiers:text.match(/\b\d{6,16}\b/g)||[]},limitations:['Not a verified caller identity or official complaint.','Transcription and tactic detection may be wrong.','No audio retained by this application.']};
+ const text = s.segments.map(x => x.text).join('\n');
+ const upiIds = [...text.matchAll(/[\w.-]+@[a-z][a-z0-9]*/gi)].filter(match => !/\.[a-z]{2,}\b/i.test(text.slice(match.index + match[0].length, match.index + match[0].length + 8))).map(match => match[0]);
+ return { schemaVersion: 3, clock: s.clock || 'arrival', gaps: s.gaps || [], sessionId: s.id, createdAt: new Date(s.createdAt).toISOString(), exportedAt: new Date().toISOString(), language: s.language, risk: s.risk, coverage: s.coverage || 'supported', provenance: ['demo', 'text'].includes(s.mode) ? 'synthetic transcript' : 'Gnani Prisma transcript', classifier: s.classifier, flags: s.flags, segments: s.segments, entities: { unverified: true, amounts: [...normalize(text).matchAll(new RegExp(AMOUNT.source, 'giu'))].map(m => m[0]), upiIds, numericIdentifiers: text.match(/\b\d{6,16}\b/g) || [] }, limitations: ['Not a verified caller identity or official complaint.', 'Transcription and tactic detection may be wrong.', `Detection rules cover ${supportedLanguages.map(c => REGISTRY.find(l => l.code === c).name).join(', ')}; other languages are marked, not assessed.`, ...(s.gaps?.length ? ['Some audio was not transcribed during connection problems; see gaps.'] : []), 'No audio retained by this application.'] };
 }
-export const tacticLabels=Object.fromEntries(rules.map(([key,label])=>[key,label]));

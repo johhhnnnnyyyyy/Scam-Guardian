@@ -18,7 +18,8 @@ try{
  const analyzed=await(await request(`/api/sessions/${id}/upload`,'POST',wav,{'Content-Type':'audio/wav'})).json();
  const evidence=await(await request(`/api/sessions/${id}/evidence`)).json();
  const pair=await(await request(`/api/sessions/${id}/pair`,'POST',{consent:true})).json();
- const family=await(await request('/api/family','GET',null,{Authorization:`Bearer ${pair.token}`})).json();
+ const reg=await request('/api/guardians/register','POST',{username:`smoke.${Date.now()}`,passphrase:'synthetic smoke passphrase',invite:pair.token},{Origin:base});
+ const family=await(await request('/api/family','GET',null,{Cookie:reg.headers.get('set-cookie').split(';')[0]})).json();
  let audioChunksCount=0,audioSamples=0;const streamed=await request(`/api/sessions/${id}/warning-stream`,'POST',{});
  for await(const bytes of audioChunks(streamed)){audioChunksCount++;audioSamples+=pcmChunk(bytes).samples.length;}
  const drillSession=await(await request('/api/sessions','POST',{language:item.language,mode:'demo',consent:true})).json();

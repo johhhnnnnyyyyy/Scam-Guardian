@@ -15,3 +15,8 @@ test('cancelled session cannot play late audio; failed speech can retry',async()
  let release;const gate=new Promise(r=>release=r),played=[];const q=warningQueue({prepare:()=>gate,play:async v=>played.push(v),onError:()=>{}});const task=q.enqueue('danger');q.cancel();release('audio');await task;assert.deepEqual(played,[]);
  let attempts=0,errors=0;const retry=warningQueue({prepare:async()=>{if(!attempts++)throw Error();return 'audio';},play:async v=>played.push(v),onError:()=>errors++});await retry.enqueue('danger');await retry.enqueue('danger');assert.equal(errors,1);assert.deepEqual(played,['audio']);
 });
+test('uncovered or partly covered speech never shows live Safe in the family view',()=>{
+ assert.equal(familyState({status:'analyzed',hasSpeech:true,risk:'safe',coverage:'unknown_language',language:'en-IN'}).risk,'idle');
+ assert.equal(familyState({status:'analyzed',hasSpeech:true,risk:'safe',coverage:'partial',language:'en-IN'}).title,'Partly covered');
+ assert.equal(familyState({status:'analyzed',hasSpeech:true,risk:'danger',coverage:'unknown_language',language:'en-IN'}).risk,'danger');
+});
