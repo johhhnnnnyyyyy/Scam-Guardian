@@ -1,0 +1,2 @@
+self.addEventListener('push',event=>{let data={title:'Scam Guardian warning',body:'Check on your family member',url:'/family'};try{data={...data,...event.data.json()};}catch{}event.waitUntil(self.registration.showNotification(data.title,{body:data.body,tag:'guardian-warning',data:{url:data.url}}));});
+self.addEventListener('notificationclick',event=>{event.notification.close();const url=new URL(event.notification.data?.url||'/family',self.location.origin);if(url.origin!==self.location.origin)return;event.waitUntil(self.clients.openWindow(url.href));});

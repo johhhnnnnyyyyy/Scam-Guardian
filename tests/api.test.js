@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createApp } from '../src/server.js';
+test('HTTP lifecycle, consent, input limits, family privacy, revoke, missing keys',async t=>{
+ const app=createApp({gnaniKey:''}); await new Promise(r=>app.server.listen(0,'127.0.0.1',r)); t.after(()=>app.close());
+ const base=`http://127.0.0.1:${app.server.address().port}`;
+ const call=(path,method='GET',body)=>fetch(base+path,{method,headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+ assert.equal((await call('/api/sessions','POST',{language:'en-IN'})).status,403);
+ let r=await call('/api/sessions','POST',{language:'en-IN',mode:'demo',consent:true}); const {id}=await r.json(); assert.equal(r.status,201);
+ assert.equal((await call(`/api/sessions/${id}/segments`,'POST',{text:'x'.repeat(2001)})).status,400);
+ await call(`/api/sessions/${id}/segments`,'POST',{text:'Tell me your OTP.'});
+ assert.equal((await (await call(`/api/sessions/${id}`)).json()).risk,'danger');
+ r=await call(`/api/sessions/${id}/pair`,'POST',{consent:true}); const {token}=await r.json();
+ const family=await fetch(base+'/api/family',{headers:{Authorization:`Bearer ${token}`}}); const f=await family.json(); assert.equal(f.risk,'danger'); assert.ok(!JSON.stringify(f).includes('Tell me'));
+ assert.equal((await call(`/api/sessions/${id}/warning`,'POST',{})).status,503);
+ assert.equal((await call(`/api/sessions/${id}/evidence`)).status,200);
+ await call(`/api/sessions/${id}/pair`,'DELETE'); assert.equal((await fetch(base+'/api/family',{headers:{Authorization:`Bearer ${token}`}})).status,404);
+ assert.equal((await fetch(base+'/api/sessions',{method:'POST',headers:{Origin:'https://evil.invalid','Content-Type':'application/json'},body:'{}'})).status,403);
+ await call(`/api/sessions/${id}`,'DELETE'); assert.equal((await call(`/api/sessions/${id}`)).status,404);
+});

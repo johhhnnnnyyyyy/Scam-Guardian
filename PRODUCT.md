@@ -1,0 +1,3 @@
+# Product context
+
+Scam Guardian is a senior-first listening aid for suspicious conversations in India. The core task is to understand a warning and pause before sharing money or secrets. Family members see consented reasons, not a surveillance feed. PRD.md owns requirements, DESIGN.md owns the visual and technical direction. As of 31 October 2026, all 16 brief items have local implementations or provider adapters and synthetic Prisma/Timbre calls have passed. Physical capture, browser playback, push delivery and real-user safety have not been validated. This is a local synthetic-data research MVP, not an emergency service, deployed product or verified call-blocking tool.
