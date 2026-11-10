@@ -13,7 +13,7 @@ export const REGISTRY = [
  { code: 'bn-IN', name: 'Bengali', status: 'planned', scripts: ['bengali', 'latin'], codeMix: 'Benglish' },
  { code: 'te-IN', name: 'Telugu', status: 'planned', scripts: ['telugu', 'latin'], codeMix: 'Tenglish' },
  { code: 'kn-IN', name: 'Kannada', status: 'planned', scripts: ['kannada', 'latin'], codeMix: 'Kanglish' },
- { code: 'ml-IN', name: 'Malayalam', status: 'planned', scripts: ['malayalam', 'latin'], codeMix: 'Manglish' },
+ { code: 'ml-IN', name: 'Malayalam', status: 'supported', scripts: ['malayalam', 'latin'], codeMix: 'Manglish' },
  { code: 'mr-IN', name: 'Marathi', status: 'planned', scripts: ['devanagari', 'latin'], codeMix: 'Minglish' },
  { code: 'gu-IN', name: 'Gujarati', status: 'planned', scripts: ['gujarati', 'latin'], codeMix: 'Gujlish' },
  { code: 'pa-IN', name: 'Punjabi', status: 'planned', scripts: ['gurmukhi', 'latin'], codeMix: 'Punglish' },

@@ -1,7 +1,7 @@
 import { AppError } from './providers.js';
 
-// In-process token buckets with lazy refill and a bounded key table. Every value is a judgement call recorded as
-// pending owner decision 11 in docs/DECISIONS.md; override any rule through createApp({ limits }).
+// In-process token buckets with lazy refill and a bounded key table. Owner decision 11: every rule is configurable
+// from the environment (limitsFromEnv); the defaults below apply otherwise. Code can still pass createApp({ limits }).
 export const DEFAULT_LIMITS = {
  sessionCreate: { capacity: 20, perMs: 3600e3 },           // per client
  listen: { capacity: 10, perMs: 60e3 },                    // WebSocket upgrades per client
@@ -14,8 +14,29 @@ export const DEFAULT_LIMITS = {
  voice: { capacity: 3, perMs: 24 * 3600e3 },               // per family account
  setupMint: { capacity: 10, perMs: 3600e3 },               // per family account
  setupClaim: { capacity: 10, perMs: 600e3 },               // per client
+ enroll: { capacity: 6, perMs: 3600e3 },                    // voice enrollments per client
  providerDaily: { capacity: 500, perMs: 24 * 3600e3, window: true }, // whole process: fixed daily window, not a rolling refill
 };
+
+// PROVIDER_DAILY_CAP=500 sets the paid-call cap; LIMIT_<RULE>=capacity or capacity/perSeconds overrides any rule,
+// e.g. LIMIT_SESSION_CREATE=40/3600. Malformed values are rejected at start-up rather than silently ignored.
+export function limitsFromEnv(env = process.env) {
+ const out = {};
+ const camel = k => k.toLowerCase().replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+ const parse = (name, raw, base) => {
+  const m = /^(\d+)(?:\/(\d+))?$/.exec(String(raw).trim());
+  if (!m || Number(m[1]) < 1) throw new Error(`${name} must be a positive integer or capacity/perSeconds`);
+  return { ...base, capacity: Number(m[1]), ...(m[2] ? { perMs: Number(m[2]) * 1000 } : {}) };
+ };
+ for (const [k, v] of Object.entries(env)) {
+  if (!k.startsWith('LIMIT_')) continue;
+  const rule = camel(k.slice(6));
+  if (!DEFAULT_LIMITS[rule]) throw new Error(`${k}: unknown limit ${rule}`);
+  out[rule] = parse(k, v, DEFAULT_LIMITS[rule]);
+ }
+ if (env.PROVIDER_DAILY_CAP !== undefined) out.providerDaily = parse('PROVIDER_DAILY_CAP', env.PROVIDER_DAILY_CAP, DEFAULT_LIMITS.providerDaily);
+ return out;
+}
 
 export function createLimiter({ rules = {}, maxKeys = 5000, now = () => Date.now() } = {}) {
  const config = { ...DEFAULT_LIMITS, ...rules };

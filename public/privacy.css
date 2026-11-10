@@ -1,0 +1,9 @@
+:root{font-family:"Segoe UI",system-ui,"Noto Sans","Noto Sans Devanagari","Noto Sans Tamil","Noto Sans Malayalam",Arial,sans-serif;color:#1b362d;background:#f7f7ef;font-size:112.5%}
+body{margin:0}
+.privacy{max-width:46rem;margin:0 auto;padding:2rem 1.25rem 4rem;font-size:1.1rem;line-height:1.7}
+.privacy h1{font-size:2.2rem;line-height:1.2;margin:.5rem 0 1rem}
+.privacy h2{font-size:1.5rem;margin:2rem 0 .5rem}
+.privacy a{color:#1d5a47;text-underline-offset:4px}
+.privacy a:focus-visible{outline:4px solid #9c6019;outline-offset:3px}
+.privacy .small{color:#475d54;font-size:1rem}
+.privacy li{margin:.5rem 0}

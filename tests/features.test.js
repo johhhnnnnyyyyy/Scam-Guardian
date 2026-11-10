@@ -54,5 +54,9 @@ test('family-emergency prompt and payment cooling-off are evidence based',()=>{
 test('PWA resources and accessible alert markup are served',async t=>{
  const app=createApp({gnaniKey:''});await new Promise(resolve=>app.server.listen(0,'127.0.0.1',resolve));t.after(()=>app.close());const base=`http://127.0.0.1:${app.server.address().port}`;
  for(const path of ['/manifest.webmanifest','/sw.js','/icon.svg'])assert.equal((await fetch(base+path)).status,200);
- const html=await(await fetch(base)).text();assert.match(html,/role="alertdialog"/);assert.match(html,/id="read-consent"/);assert.match(html,/id="drill-hangup"/);
+ const html=await(await fetch(base)).text();assert.ok(/id="root"/.test(html)||/npm run build/.test(html));
+ // The interface is a React app; the accessible alert and key controls live in its source.
+ const {readFile}=await import('node:fs/promises');const src=async f=>readFile(new URL(`../ui/src/${f}`,import.meta.url),'utf8');
+ assert.match(await src('components/ui/alert-overlay.jsx'),/role="alertdialog"/);assert.match(await src('components/ui/alert-overlay.jsx'),/aria-modal="true"/);
+ assert.match(await src('senior/HomeTab.jsx'),/readConsentAloud/);assert.match(await src('senior/MoreTab.jsx'),/drillHangup/);
 });

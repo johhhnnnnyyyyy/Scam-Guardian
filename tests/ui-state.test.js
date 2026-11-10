@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {familyState} from '../public/family-state.js';
-import {warningQueue} from '../public/warning-queue.js';
+import {familyState} from '../ui/src/lib/family-state.js';
+import {warningQueue} from '../ui/src/lib/warning-queue.js';
 test('family silence and stopped capture never show live Safe',()=>{
  for(const status of ['waiting','listening','stopped']){const result=familyState({status,hasSpeech:false,risk:'safe',language:'en-IN'});assert.equal(result.risk,'idle');assert.match(result.message,/No speech/);}
  assert.equal(familyState({status:'stopped',hasSpeech:true,risk:'safe',language:'en-IN'}).title,'Listening stopped');

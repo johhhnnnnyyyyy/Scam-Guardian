@@ -3,7 +3,9 @@ export async function startCapture(session,onEvent,onError){
  const stop=()=>{if(stopped)return;stopped=true;stream?.getTracks().forEach(t=>t.stop());node?.disconnect();source?.disconnect();socket?.close();context?.close().catch(()=>{});};
  try{
   if(!navigator.mediaDevices?.getUserMedia)throw Error('Microphone access requires localhost or HTTPS. Use the synthetic demo here.');
-  stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true},video:false});
+  // Raw audio (decision 24): browser noise suppression and gain control would erase the phone-line signature that
+  // tells the caller's voice from the senior's.
+  stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false});
   context=new AudioContext({sampleRate:16000});await context.resume();
   await context.audioWorklet.addModule('/pcm-worklet.js');
   socket=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/api/listen?session=${encodeURIComponent(session)}&rate=${context.sampleRate}`);

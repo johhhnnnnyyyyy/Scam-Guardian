@@ -1,6 +1,6 @@
 # API contracts
 
-Current local implementation, checked 31 October 2026. Credentialed synthetic Prisma and Timbre checks are recorded in [PROVIDER_VERIFICATION.md](PROVIDER_VERIFICATION.md). Browser/device delivery is separate. Keys remain server-side.
+Current local implementation, checked 31 October 2026. Browser/device delivery is separate. Keys remain server-side.
 
 ## Gnani adapters
 
@@ -25,6 +25,7 @@ Environment: `GNANI_API_KEY`; optional `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL
 | `POST /api/sessions/:id/warning` | Binary WAV for standard or consented cloned warning. |
 | `POST /api/sessions/:id/trusted-voice` | `{consent:boolean}` senior choice. |
 | `POST /api/sessions/:id/drill` | Synthetic spoken practice call WAV; demo mode only. |
+| `POST/DELETE /api/profile/family` | Standing family link (owner decision 10 Nov 2026). `POST {consent:true}` with the device token records the "share every call" consent and returns a one-use invite `{token, expiresAt}` valid 24 h; no call needs to be running. While it is on, every call of this profile is shared with linked family accounts (`GET /api/timeline` reports `familySharing`). `DELETE` withdraws it: invites die, current calls stop sharing, family accounts stay linked but see nothing (`/api/family` returns `sharing:false, standing:false`). |
 | `POST/DELETE /api/sessions/:id/pair` | Senior explicit family consent for this session → random invite token (expires with the session); revoke stops live sharing. The invite links a family account; it is not a login. |
 | `POST /api/guardians/register` · `POST /api/guardians/login` · `POST /api/guardians/logout` · `GET /api/guardians/me` | Separate family (Guardian) login. Register needs `{username,passphrase,invite}`; login takes `{username,passphrase,invite?}` (an invite re-links the account). Passphrase 10–128 chars, scrypt-hashed. Session in an `HttpOnly; SameSite=Strict` cookie (12 h). Five failed logins per username and client lock it for 15 minutes. Cookie writes require a same-origin `Origin` header. |
 | `GET /api/profile/guardians` · `DELETE /api/profile/guardians/:username` | Senior (Bearer profile token) lists or removes linked family accounts. |
@@ -56,3 +57,25 @@ Session IDs and invites are temporary capabilities, not production authenticatio
 - Flags now carry `act` (`advice`, `reported`, `demand`, `narration`, `question`, `other`) and `grade` (`strong` or `weak`). Weak flags never decide risk alone and are omitted from family `reasons`. New tactics: `advance_fee`, `prize`, `investment_bait`, `extortion` (labels in `tacticLabels`).
 - Warning responses carry `X-Warning-Source: cache|provider` and, on fallback after a provider failure, `X-Warning-Fallback: cache|standard-voice-cache`.
 - `PREWARM_WARNINGS=1` pre-renders the standard warnings at startup.
+
+## Batch 4 contract changes (9 November 2026)
+- `POST /api/profile/enroll?rate=16000|44100|48000`: the senior's device credential as `Authorization: Bearer`, the body is raw 16-bit mono PCM (about 12 s, at most 20 s). `200 {enrolled, voicedSeconds, verifier}`. `422 {reason:"enrollment_quality"}` when there are under 8 s of voiced speech, or the audio is too quiet or clipped. Only a voice print and the live-channel level are stored; the audio is discarded. Rate limit `enroll` (6 per hour per client). `DELETE /api/profile/enroll` removes the enrollment.
+- `GET /api/timeline` now includes `enrolled`.
+- `POST /api/sessions` with `mode:"live"` returns `409 {reason:"enrollment_required"}` until the profile is enrolled (and includes `deviceToken` when that request created the profile). Turn this off only in tests with `createApp({ requireEnrollment:false })`.
+- Live segments may carry `speaker` (`senior` | `caller` | `unsure`) and `attribution` {`confidence`, `basis`, `hint`, `spoofSuspect`, `evidence` {voice, voiceScore, channel, highBandDb, topBandDb, voicedMs, text, llm}, `ms`}. A `senior` turn's tactics are weak evidence; `caller` and `unsure` turns are scored as before.
+- LLM requests now send `{previousSummary, segments:[{id,text,speaker?}]}` and accept `roles` and `summary` in the reply (validated; roles can only veto "senior" or confirm "caller"). `/api/health` reports `llm:"missing (required; …)"` when unconfigured.
+- `createApp({ dataDir })` / `DATA_DIR` snapshot state to `state.json`; `createApp({ voiceEmbedder })` plugs in a neural speaker embedder `(Float32Array, rate) → Float32Array`.
+- Env limits: `PROVIDER_DAILY_CAP`, `LIMIT_<RULE>=capacity[/perSeconds]`; malformed values stop start-up.
+
+## Batch 5 contract changes (9 November 2026)
+- `ml-IN` is a supported session language (`/api/languages` shows `supported`).
+- Session snapshots add `uncertain` (boolean: "Be careful" close to Hang up) and `score` (weighted evidence); the family view adds `uncertain`.
+- Segment `attribution.evidence` adds `callerMatch` and `tuned`. Profiles may hold `enrollment.tuned`, `phoneChannel` and `needsReenroll` (measurements only).
+
+## Batch 6 contract changes (10 November 2026)
+- Timeline events now have `id`, `uncertain` and optional `outcome {label, by, at}`. `POST /api/timeline/label` (device credential) and `POST /api/family/timeline/label` (family cookie; shared events only) take `{eventId, label}` with label one of `scam`, `not_scam`, `was_family`, `unsure`.
+- `GET /api/profile/export` (device credential): attachment JSON with the profile, timeline, consents, notice version, device dates and linked family usernames. Never includes credentials, transcripts or the voice print.
+- `DELETE /api/profile` (device credential): erases the profile, its devices and sessions, and unlinks family accounts (`{erased, familyAccountsUnlinked}`). `DELETE /api/guardians/me` (family cookie): deletes the family account.
+- `POST /api/profile/enroll` now also requires `consent=1&adult=1` (else `403 {reason:"enrollment_consent"}`). A profile enrolled with a different voice method counts as not enrolled.
+- `GET /api/metrics` exists only when `METRICS_TOKEN` is set (`Authorization: Bearer`): JSON `{uptimeSeconds, counters[], timings{}}` or Prometheus text with `?format=prometheus`. It holds no content or identifiers.
+- `GET /privacy` serves the privacy notice. Responses add Permissions-Policy, COOP, X-Frame-Options, and HSTS when cookies are secure.

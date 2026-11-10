@@ -12,4 +12,4 @@ The owner explicitly prohibits browser control and inbuilt browser use. Do not r
 
 Keep user audio and transcripts in bounded volatile memory; export only on explicit action. Use synthetic data in fixtures and demos. Never log bodies or provider credentials. Do not send family messages or publish externally during development.
 
-Current status (31 October 2026): all 16 brief items have local implementations or provider adapters. Synthetic credentialed Prisma and Timbre paths have passed; browser/device audio, real Web Push, consented voice cloning and real-user safety remain unverified. Use docs/FEATURE_AUDIT.md for per-feature status and PROGRESS.md for current gates; do not promote an adapter to a deployed-feature claim.
+Current status (31 October 2026): all 16 brief items have local implementations or provider adapters. Synthetic credentialed Prisma and Timbre paths have passed; browser/device audio, real Web Push, consented voice cloning and real-user safety remain unverified. Use PROGRESS.md for current gates; do not promote an adapter to a deployed-feature claim.

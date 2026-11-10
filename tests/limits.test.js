@@ -26,3 +26,14 @@ test('F-17: refilled buckets are swept, a full table evicts the oldest instead o
  assert.equal(clientKeyFor(req, 1), '9.9.9.9', 'rightmost entry with one trusted hop');
  assert.equal(clientKeyFor({ headers: {}, socket: { remoteAddress: '2001:db8:1:2:3:4:5:6' } }), '2001:db8:1:2::/64');
 });
+
+test('decision 11: limits are configurable from the environment', async () => {
+ const { limitsFromEnv } = await import('../src/limits.js');
+ assert.deepEqual(limitsFromEnv({}), {});
+ const l = limitsFromEnv({ PROVIDER_DAILY_CAP: '200', LIMIT_SESSION_CREATE: '40/60' });
+ assert.equal(l.providerDaily.capacity, 200);
+ assert.equal(l.providerDaily.window, true);
+ assert.deepEqual(l.sessionCreate, { capacity: 40, perMs: 60000 });
+ assert.throws(() => limitsFromEnv({ LIMIT_NOPE: '3' }), /unknown limit/);
+ assert.throws(() => limitsFromEnv({ PROVIDER_DAILY_CAP: 'lots' }), /positive integer/);
+});

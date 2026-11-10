@@ -1,5 +1,27 @@
 # Evaluation and demo protocol
 
+## Results summary (10 November 2026, text only)
+
+All figures are k/n with Wilson 95% intervals (`npm run evaluate`). No audio, STT error, noise or timing is included.
+
+| Set | What it is | Scams at "Hang up" | Scams at ≥ "Be careful" | Ordinary calls alarmed |
+|---|---|---|---|---|
+| Tuning fixtures (en/hi/ta) | rules were written against these | 48/50 | 50/50 | 0/50 |
+| Scam families (en/hi/ta) | development | 59/59 at the expected level | — | 0/24 |
+| Malayalam / Manglish | development | 14/14 at the expected level | — | 0/10 |
+| **Blind round 1** (en/hi/ta/ml, 120 calls) | written blind, measured once with the batch 5 rules | **19/60** | **39/60** | 13/60 (0 at "Hang up") |
+| ↳ same set after batch 6 fixes | now development data | 36/60 | 54/60 | 4/60 |
+| **Blind round 2** (en/hi/ta/ml, 120 calls; manifest sha256 `799ac071…`) | written blind, measured once with frozen batch 6 rules | **20/60** | **31/60** | 6/60 (**3 at "Hang up"**) |
+| ↳ round 2, rules + LLM layer (estimate) | a small model (Haiku 5.5) given the production prompt and unlabelled calls | **26/60** | **60/60** | 7/60 (0 at "Hang up") |
+
+What this means:
+- **Rules alone do not generalise well.** On new wording they catch roughly a third of scams at "Hang up" and about half at "Be careful" or higher. The development sets overstate this.
+- **The LLM layer is what generalises.** In the estimate, every blind scam reached at least "Be careful" and no ordinary call reached "Hang up". The production model (configured by `LLM_MODEL`) must be measured the same way before any claim; this estimate used a different, small model.
+- **"Hang up" stays conservative by design.** The LLM cannot decide danger alone (decision 10): it needs at least two rule tactics. Relaxing that to one is pending owner decision 26.
+- The three false "Hang up" cases in round 2 were one flaw: a romanised "we will *not* ask for your password, just confirm…" read as a demand. It was fixed after the measurement, so round 2 has been looked at, and the next evaluation needs a fresh blind round 3.
+- Every blind set is synthetic, written by a model, and not native-reviewed. Real calls, real speech recognition and real code-mixing will differ.
+
+
 ## Development text run
 
 Corpus: fixtures/calls.js, 50 synthetic scam + 50 benign scripts. English 30+30, Hindi/Hinglish 10+10, Tamil 10+10. No real identifiers. Run `npm run evaluate` for machine-readable per-case results in artifacts/text-evaluation.json.
@@ -15,7 +37,7 @@ node --env-file=.env scripts/audio-benchmark.js generate 1
 node --env-file=.env scripts/audio-benchmark.js score artifacts/audio/manifest.json
 ```
 
-Generation uses Timbre v2.5 and writes WAV files plus provenance. Score sends clips to Prisma REST, computes whitespace-word WER, final risk and REST wall time. One English synthetic clip was generated and scored on 31 October 2026; see [PROVIDER_VERIFICATION.md](PROVIDER_VERIFICATION.md). This is not a held-out or speaker-captured benchmark. Larger generation consumes credits; review one clip before generating all 100. Direct TTS audio is not speaker-captured audio.
+Generation uses Timbre v2.5 and writes WAV files plus provenance. Score sends clips to Prisma REST, computes whitespace-word WER, final risk and REST wall time. One English synthetic clip was generated and scored on 31 October 2026; see (removed test document). This is not a held-out or speaker-captured benchmark. Larger generation consumes credits; review one clip before generating all 100. Direct TTS audio is not speaker-captured audio.
 
 ## Physical rig
 

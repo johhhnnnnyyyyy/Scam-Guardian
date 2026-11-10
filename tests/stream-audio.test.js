@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createProviders} from '../src/providers.js';
-import {audioChunks,pcmChunk} from '../public/stream-audio.js';
+import {audioChunks,pcmChunk} from '../ui/src/lib/stream-audio.js';
 
 test('Gnani SSE audio chunks forward without waiting for the full warning',async()=>{
  const raw=Buffer.from([0,0,255,127]);

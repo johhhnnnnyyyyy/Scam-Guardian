@@ -1,5 +1,29 @@
 # Progress — current MVP snapshot, 31 October 2026
 
+## Update — 10 November 2026: roadmap batch 6 (final MVP build)
+
+- **Blind evaluation:** two independent 120-call sets (en/hi/ta/ml, code-mixed) were written by helpers who never saw the rules. Rules alone on unseen wording: round 1 19/60 scams at Hang up (39/60 at ≥ careful); round 2, after fixes, 20/60 (31/60). With an LLM layer (estimate using a small model and the production prompt): 60/60 at ≥ careful, 0 false Hang up. Full table in docs/EVALUATION.md.
+- **Detection:** new categories in all four languages (task/investment, deposit-to-unlock, loan-app and sextortion threats, code paraphrases, UPI PIN to receive), fewer single-signal false alarms, and fixes for romanised negation.
+- **Product:** outcome labels for senior and family, data export and erasure, consent records, 18+ enrollment confirmation, privacy notice, family account deletion, Malayalam drill.
+- **Operations:** security headers, privacy-safe metrics, graceful shutdown, Dockerfile with health check and non-root user, optional neural voice print (sherpa-onnx).
+- **Docs:** README rewritten; (removed test document) (what's left: device, audio, accessibility, native-language and legal checks); docs/COMPLIANCE.md (DPDP / IT Act checklist).
+- **Evidence:** 106/106 tests pass. Development sets unchanged (48/50 tuning, 59/59 families, 14/14 Malayalam; 0 benign red).
+
+## Update — 9 November 2026: roadmap batch 5 (MVP languages, Malayalam, weighted scoring, per-user tuning)
+
+- **MVP languages:** English, Hindi, Tamil and Malayalam, plus Hinglish, Tanglish and Manglish. Malayalam is now supported: a detection pack (Malayalam script and Manglish), chillu and digit normalisation, a demo, UI copy and warning text (all needing native review), and a 24-case development set: 14/14 scams at the expected level and 0/10 look-alikes alarmed (before tuning, 11/14 and 3/10).
+- **Weighted scoring with an uncertain tier:** "Be careful" close to Hang up now says so, to both the senior and the family.
+- **Per-user tuning** of caller-vs-senior attribution, with guardrails: certain turns only, capped drift, and never a looser rule for "You".
+- **Pack data:** amounts, payment verbs, remote-tool names and "never calls" bodies moved out of the engine.
+- **Evidence:** 101/101 tests pass. Text evaluation for English, Hindi and Tamil is unchanged (48/50 tuning scams red, 0/50 benign; 59/59 family cases, 0/24 look-alikes).
+
+## Update — 9 November 2026: roadmap batch 4 (caller-vs-senior attribution, compulsory LLM, persistence)
+
+- **Caller vs senior (decision 24).** Senior voice enrollment is now compulsory before live listening (about 12 s, read aloud; only a voice print and a channel level are kept). Each transcript turn is attributed from its own audio using two physical tests: phone-line channel (narrowband and VoLTE band edges) and voice match to the enrollment. Words and the LLM act as a capped third vote. A turn is labelled "senior" only when both acoustic tests agree; a senior-sounding voice that came through the phone is a suspected clone and is never labelled senior; everything else is "unsure", which is scored exactly as before. The senior's own words become weak evidence, so "No, I won't tell you the OTP" no longer adds to the warning. The browser now captures raw audio (no noise suppression or gain control) and shows You / Caller / Unsure labels.
+- **LLM compulsory (decision 25).** The server will not start without an LLM unless `ALLOW_RULES_ONLY=1`. The LLM proposes roles and keeps a rolling call summary; it can confirm "caller" or veto "senior", never create "senior".
+- **Decisions 1, 8, 11, 21:** "No warning detected" label; `DATA_DIR` file persistence for accounts, profiles and devices (never sessions or audio); env-configurable limits; bare institution names count as weak evidence.
+- **Evidence:** 95/95 tests pass. Text evaluation unchanged (48/50 tuning scams red, 0/50 benign; 59/59 family cases, 0/24 look-alikes). Attribution is verified only on **synthetic** signals (under 200 ms per turn). Thresholds are uncalibrated and no real-audio accuracy is claimed; see docs/DECISIONS.md batch 4 notes and reports/Caller vs senior speaker attribution.md for the measurement plan.
+
 ## Update — 9 November 2026: roadmap batch 3 (language packs, dialogue acts, scam families, pre-rendered warnings)
 
 | Check | Command | Result |
@@ -49,7 +73,7 @@ Done in this batch:
 
 Next batches (dependency order from the roadmap): held-out split and benign twins (F-19); STT reconnect, sliding expiry and audio clock (F-11–F-13); Origin on all writes and rate limits (F-15–F-17); health states (rest of B-11); word-level language ID and language packs (B-3, B-21); scam-family coverage (B-1); slot scoring and dialogue acts (B-4, B-5); pre-rendered warnings (B-12). Hindi/Tamil coverage-notice wording needs native review.
 
-Scam Guardian is a **working local, synthetic-data MVP**, not a deployed or validated real-call safety product. All 16 items in the owner's brief have a local UI/engine implementation or provider adapter. [Feature audit](docs/FEATURE_AUDIT.md) separates each implemented path from its remaining device or service gate. The three bank, community-radar and telecom ideas remain roadmap items.
+Scam Guardian is a **working local, synthetic-data MVP**, not a deployed or validated real-call safety product. All 16 items in the owner's brief have a local UI/engine implementation or provider adapter. Feature audit separates each implemented path from its remaining device or service gate. The three bank, community-radar and telecom ideas remain roadmap items.
 
 ## Verified in this workspace
 
@@ -61,7 +85,7 @@ Scam Guardian is a **working local, synthetic-data MVP**, not a deployed or vali
 | Real Gnani calls on synthetic speech | Prisma v3 REST/realtime and Timbre REST/SSE returned usable responses | One/few clips per path; no acoustic phone capture or p95 latency |
 | Local HTTP integration with real provider | Upload → verdict → evidence → reason-only family projection → streamed warning → drill passed | Node transport only; no browser playback or real push |
 
-The provider checks included one direct-TTS English, Hindi and Tamil STT/detector example. The first English REST attempt returned HTTP 504; a retry passed. The server now normalizes Gnani's unknown-length provider WAV headers and splits a validated 60-second upload into ≤29-second REST chunks because the current provider limit is 30 seconds. Detailed single-run observations and repeat commands are in [provider verification](docs/PROVIDER_VERIFICATION.md). These results do not estimate scam-detection accuracy.
+The provider checks included one direct-TTS English, Hindi and Tamil STT/detector example. The first English REST attempt returned HTTP 504; a retry passed. The server now normalizes Gnani's unknown-length provider WAV headers and splits a validated 60-second upload into ≤29-second REST chunks because the current provider limit is 30 seconds. Detailed single-run observations and repeat commands are in provider verification. These results do not estimate scam-detection accuracy.
 
 Documentation sync verification on 31 October: `npm run evaluate` returned the 50/50 and 0/50 results above; `node scripts/audit-features.js` passed 7/7; `npm test` passed 38/38 when local loopback binding was permitted. The sandboxed first `npm test` attempt could not run three HTTP/WebSocket test files because binding was denied; this was an environment restriction, and the permitted local-only rerun passed. No browser automation was used.
 
@@ -80,10 +104,38 @@ Documentation sync verification on 31 October: `npm run evaluate` returned the 5
 4. HTTPS deployment, durable production identity and account recovery, abuse controls, operational monitoring, provider-retention review, recording/privacy/legal review and current contest-terms check. A localhost family link works only on the same host. No public deployment, family message, real call, demo video or contest submission occurred.
 5. Rotate the Gnani key before public use: it was found in `.env.example`, removed from that template and moved to ignored `.env` with mode 0600, but it appeared in tool output. Rotation is still owner-only and outstanding.
 
-The app cannot end cellular calls, block payments, establish caller identity or submit an official complaint. “Safe” means no warning detected in analyzed speech, never a verified caller. See [evaluation protocol](docs/EVALUATION.md) for the remaining measurements and [README](README.md) for run commands.
+The app cannot end cellular calls, block payments, establish caller identity or submit an official complaint. “No warning detected” means no warning in analyzed speech, never a verified caller. See [evaluation protocol](docs/EVALUATION.md) for the remaining measurements and [README](README.md) for run commands.
 
 ## Dated history (superseded status)
 
 - **25–26 October:** Initial docs and local vertical slice. At the 26 October audit, 3 features were implemented locally, 7 partial and 6 missing; 23 tests passed and seven detector/entity probes failed. Those counts describe that earlier checkout only.
 - **30 October:** Implemented the missing local feature paths, fixed all seven probes, added Web Push, Timbre SSE, compressed uploads, consented voice enrollment, code word, timeline, QR setup, practice call and cooling-off prompt. At that point 35 tests passed. Provider/device paths were still unverified.
 - **31 October:** Owner-supplied Gnani key enabled credentialed synthetic checks above; provider WAV and current Prisma v3/30-second contract fixes brought the suite to 38 passing tests. No browser control was used.
+- **10 November (batch 7):** Rebuilt the interface with React + Tailwind + shadcn/ui for older users (see docs/DECISIONS.md, Batch 7). Server and APIs unchanged; 119 tests pass; not yet seen on a real screen. Interface text is English only (pending decision 29).
+- **10 November (batch 7, later):** Normal text sizes and a responsive layout (phones, tablets, desktops) after owner feedback; added `scripts/test-all.sh`, `scripts/smoke.mjs` (25 end-to-end checks) and `scripts/live-audio.mjs` (real speech path) plus docs/TESTING.md. 120 tests pass.
+- **10 November (batch 7c):** Role-play scripts for three testers ((removed test document)); fixed six detection misses they exposed (see DECISIONS, Batch 7c). 158 tests pass.
+- **10 November (persona test):** Owner-authorised automated test: 48 blind calls by separate scammer and elderly agents in 7 language forms, synthetic voices, server run (all) and headless-browser run (12). 0/240 caller lines labelled You; scams 21/32 Hang up now, 30/32 at least Be careful; genuine 0/16 Hang up now. Speech recognition was a stand-in and there was no LLM. Fixed the first-run enrollment message. See (removed test document).
+
+## 10 November 2026: speaker labels and live conversation view
+- Added turn-taking to `decide()` (decision 24) test-first: 4 new tests in tests/attribution.test.js (phone + turn-taking, wideband voice + turn-taking, and safety guards: never "You", never alone, only after a certain senior turn, words can block it).
+- Home now shows a live chat-style conversation (`ui/src/components/Conversation.jsx`) in place of the collapsed "What was heard" list.
+- `npm test`: 160/161 pass. The one failure is F-12 (session idle timing), which also fails 4 times in 6 on the previous commit; it is a pre-existing timing flake (80 ms steps against a 150 ms limit), not caused by this change.
+- Not verified: the conversation view on a real phone, and turn-taking accuracy on real calls (needs real recordings).
+
+## 10 November 2026: lure-only lines no longer warn early (C24)
+- Test-first: tests/lure-flow.test.js (real server, stand-in model that flags the bonus line as a prize). Red: Be careful after the lure. Green after the `LURE_ONLY` guard in `mergeGroundedFlags` (src/engine.js). Prompt in src/providers.js updated.
+- Rules checked: lure-only lines stay safe in English, Hindi, Hinglish, Tamil, Tanglish, Malayalam, Manglish samples.
+- `npm test`: 162/162 pass. Not verified: behaviour of the real Gemini model with the new prompt (re-run C24 manually).
+
+## 10 November 2026: voice-saved indicator
+- `/api/timeline` now also returns `enrolledAt` (time only, never the measurement). The recording card on Home and More → Your information show "Your voice is saved (recorded …)" or "No voice saved yet", and say that only a measurement is kept, never the recording.
+- Tests: attribution test extended (enrolled false/null before, true/time after, no print in the response); render test for the three states. `npm test`: all pass except F-12, the known session-timing flake.
+- Not verified: how it looks on a real phone.
+
+## 10 November 2026 (afternoon): Malayalam, speaker labels, family link, interface, microphone check
+- Malayalam/Manglish as speech recognition writes it (script loanwords, mixed Latin): src/loanwords.js + "പറഞ്ഞു താ" demand; tests/malayalam-asr.test.js (red 2/4 → green 4/4). Role-play check 37/37; blind Malayalam persona set unchanged (ml-02 still missed, pending 30).
+- Speaker labels: "phone" now needs a band-edge cliff; caller print needs a 3-point margin. tests/attribution.test.js: turned-away senior never Caller (red → green), phone and VoLTE callers still Caller, poisoned caller print ignored (red → green).
+- Persona rerun (48 calls, synthetic voices, oracle STT): caller lines You 0 (was 0), Caller 95/240 (was 70), senior lines Caller 0, You 166/204 (unchanged); scams 21/32 Hang up now, genuine 0/16 (unchanged).
+- Family: link once, share every call (tests/family-standing.test.js, red → green). Interface: "warm and calm" redesign, self-hosted fonts. Microphone check (tests/mic-check.test.js).
+- `npm test`: 176/176 pass.
+- Not verified: the new look on any screen (no browser use without the owner's go-ahead); thresholds on real calls; whether the owner's "everything is Caller" is gone (re-record the voice first).

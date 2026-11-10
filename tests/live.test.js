@@ -18,7 +18,7 @@ async function until(check, ms = 2000) { const end = Date.now() + ms; while (Dat
 
 async function start(t, liveOptions = {}) {
  const upstreams = [], connects = [];
- const app = createApp({ liveOptions: { random: () => 0, micSilentMs: 60000, tickMs: 20, ...liveOptions }, providers: { configured: true, connect(language, rate, opts) { connects.push(opts); const u = fakeUpstream(); upstreams.push(u); setTimeout(() => u.say({ type: 'connected' }), 5); return u; } } });
+ const app = createApp({ requireEnrollment: false, liveOptions: { random: () => 0, micSilentMs: 60000, tickMs: 20, ...liveOptions }, providers: { configured: true, connect(language, rate, opts) { connects.push(opts); const u = fakeUpstream(); upstreams.push(u); setTimeout(() => u.say({ type: 'connected' }), 5); return u; } } });
  await new Promise(r => app.server.listen(0, '127.0.0.1', r));
  t.after(() => app.close());
  const port = app.server.address().port, base = `http://127.0.0.1:${port}`;

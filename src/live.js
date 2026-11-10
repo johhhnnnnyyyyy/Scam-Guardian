@@ -58,6 +58,18 @@ export function createLiveBridge({ client, connect, session, rate, onTranscript,
  let rotating = false, committing = false, plannedRotation = false, rotateTimer = null, rotateDeadline = null, commitTimer = null, handshakeTimer = null;
  let endingNotified = false, degradedAt = 0;
  const gaps = [];
+ // Decision 24: the last 30 s of audio, so each transcript's own audio can be attributed to caller or senior.
+ // Kept in memory only, never logged or written.
+ const pcmRing = [], pcmRingMax = Math.ceil(30000 / frameMs);
+ const audioBetween = (startMs, endMs) => {
+  const from = Math.floor((startMs / 1000) * rate), to = Math.ceil((Math.min(endMs, startMs + 10000) / 1000) * rate);
+  const parts = pcmRing.filter(f => f.pos + SAMPLES_PER_FRAME > from && f.pos < to);
+  if (!parts.length) return null;
+  const all = new Int16Array(parts.length * SAMPLES_PER_FRAME);
+  parts.forEach((f, i) => all.set(new Int16Array(f.buf.buffer.slice(f.buf.byteOffset, f.buf.byteOffset + SAMPLES_PER_FRAME * 2)), i * SAMPLES_PER_FRAME));
+  const off = Math.max(0, from - parts[0].pos);
+  return all.subarray(off, off + (to - from));
+ };
  const health = { state: 'connecting', reason: null, attempt: 0 };
  session.gaps = gaps;
  session.clock = 'audio';
@@ -104,6 +116,7 @@ export function createLiveBridge({ client, connect, session, rate, onTranscript,
 
  function accept(buf) {
   const frame = { buf, pos: clockSamples };
+  pcmRing.push(frame); if (pcmRing.length > pcmRingMax) pcmRing.shift();
   clockSamples += SAMPLES_PER_FRAME;
   if (ready && !queue.length && upstreamOpen() && upstream.bufferedAmount <= backlogBytes) { sendUp(frame); return; }
   queue.push(frame);
@@ -196,7 +209,7 @@ export function createLiveBridge({ client, connect, session, rate, onTranscript,
      at = wallBase + audioEndMs;
      timing = { clock: 'audio', estimated: true, audioStartMs, audioEndMs };
     }
-    onTranscript(text, key, at, timing);
+    onTranscript(text, key, at, timing, timing.audioEndMs !== undefined ? audioBetween(timing.audioStartMs, timing.audioEndMs) : null);
    }
    if (rotating && openSpeech === 0) commitNow();
   }

@@ -7,7 +7,7 @@ import { twins } from '../fixtures/twins.js';
 
 test('B-21: the registry lists Gnani\'s ten STT languages, only tested ones are supported, Odia is not offered', () => {
  assert.equal(REGISTRY.filter(l => l.status !== 'not_offered').length, 10);
- assert.deepEqual(supportedLanguages, ['en-IN', 'hi-IN', 'ta-IN']);
+ assert.deepEqual(supportedLanguages, ['en-IN', 'hi-IN', 'ta-IN', 'ml-IN']);
  assert.equal(REGISTRY.find(l => l.code === 'or-IN').status, 'not_offered');
 });
 

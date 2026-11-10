@@ -7,7 +7,8 @@ const USERNAME = /^[a-z0-9._-]{3,32}$/;
 const DUMMY_SALT = randomBytes(16);
 
 // Guardian (family member) accounts: a login that is separate from the senior's profile capability.
-// Accounts live in bounded process memory, like every other record in this prototype; a restart clears them.
+// Accounts live in bounded process memory; with DATA_DIR set the server snapshots them to disk (src/persist.js).
+// Sign-in sessions are not persisted: after a restart family members sign in again.
 export function createGuardianStore({ maxAccounts = 200, maxPerProfile = 5, maxSessionsPerAccount = 5, maxFailureRecords = 5000, sessionTtlMs = 12 * 3600e3, idleMs = 30 * 24 * 3600e3, maxFailures = 5, maxFailuresPerUsername = 20, lockMs = 15 * 60e3, now = () => Date.now() } = {}) {
  const accounts = new Map(), sessions = new Map(), failures = new Map();
 
@@ -96,5 +97,16 @@ export function createGuardianStore({ maxAccounts = 200, maxPerProfile = 5, maxS
   for (const [name, account] of accounts) if (account.lastUsedAt + idleMs < t) { accounts.delete(name); for (const [token, entry] of sessions) if (entry.username === name) sessions.delete(token); }
   for (const [k, failure] of failures) if (failure.since + lockMs < t && (!failure.until || failure.until < t)) failures.delete(k);
  }
- return { register, login, startSession, fromToken, endSession, link, unlink, linkedTo, sweep, sessionTtlMs };
+ // Erasure (batch 6): the family member deletes their own account; every sign-in session ends with it.
+ function deleteAccount(username) {
+  const name = normalizeUsername(username);
+  if (!accounts.delete(name)) return false;
+  for (const [token, entry] of sessions) if (entry.username === name) sessions.delete(token);
+  return true;
+ }
+ // When a senior erases their profile, every linked family account is unlinked (the accounts themselves remain).
+ function unlinkAll(profileToken) { let n = 0; for (const a of accounts.values()) if (a.profileToken === profileToken) { a.profileToken = null; a.subscription = null; a.pushStatus = 'not subscribed'; n++; } return n; }
+ function exportAccounts() { return [...accounts.values()].map(a => ({ ...a })); }
+ function importAccounts(list = []) { for (const a of list) if (a && USERNAME.test(a.username) && Buffer.isBuffer(a.salt) && Buffer.isBuffer(a.hash) && accounts.size < maxAccounts) accounts.set(a.username, a); }
+ return { register, login, startSession, fromToken, endSession, link, unlink, unlinkAll, deleteAccount, linkedTo, sweep, sessionTtlMs, exportAccounts, importAccounts };
 }

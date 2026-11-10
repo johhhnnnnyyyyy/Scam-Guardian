@@ -13,7 +13,7 @@ test('B-5: dialogue acts separate demands from reports, narration and advice', (
  assert.equal(classifyAct('Your son was arrested'), 'other', 'aimed at the listener: never narration');
  assert.equal(classifyAct('Never share your OTP with anyone'), 'advice');
  assert.equal(classifyAct('उन्होंने खबर में बताया कि पुलिस फोन करती है'), 'reported');
- assert.equal(classifyAct('செய்தியில் போலி அழைப்புகள் பற்றி சொன்னார்கள்'), 'reported');
+ assert.ok(['reported', 'advice'].includes(classifyAct('செய்தியில் போலி அழைப்புகள் பற்றி சொன்னார்கள்')), 'news about fake calls never escalates (batch 6: awareness talk is advice)');
 });
 
 test('B-5: reported and narrated tactics are shown as weak evidence and do not escalate alone', () => {

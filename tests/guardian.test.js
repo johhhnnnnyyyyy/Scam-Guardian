@@ -144,7 +144,7 @@ test('the AI classifier runs after the rule verdict is returned', async t => {
  const gate = new Promise(r => { release = r; });
  const fetcher = async (_url, init) => {
   await gate;
-  const segments = JSON.parse(JSON.parse(init.body).messages[1].content);
+  const { segments } = JSON.parse(JSON.parse(init.body).messages[1].content);
   const seg = segments.at(-1);
   return Response.json({ choices: [{ message: { content: JSON.stringify({ flags: [{ tactic: 'payment', segmentId: seg.id, quote: 'Move the funds to the holding account' }] }) } }] });
  };

@@ -2,7 +2,7 @@
 
 Status: owner requirements preserved; local MVP implementation mapped as of 31 October 2026. Implementation choices are agent-selected; substantive proposed changes remain pending in docs/DECISIONS.md.
 
-Feature audit, 31 October 2026: this document describes requirements, not a claim of device safety. [docs/FEATURE_AUDIT.md](docs/FEATURE_AUDIT.md) maps every original feature to current code and gaps; [credentialed synthetic provider checks](docs/PROVIDER_VERIFICATION.md) are separate from physiacal speakerphone validation. Prototype substitutions do not reduce the owner's requested scope.
+Feature audit, 31 October 2026: this document describes requirements, not a claim of device safety. Synthetic provider checks are separate from physiacal speakerphone validation. Prototype substitutions do not reduce the owner's requested scope.
 
 ## Purpose
 Help seniors recognize pressure tactics during suspicious Hindi, Hinglish, Tamil, and English conversations, pause before sharing secrets or transferring money, and reach a trusted family member. The family member helps without gaining a surveillance feed. Target: Gnani Great Indian AI Internship Challenge.

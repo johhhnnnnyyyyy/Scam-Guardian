@@ -1,4 +1,5 @@
 import {familyState} from './family-state.js';
+import { renderTimeline } from './outcomes.js';
 const $=id=>document.getElementById(id);
 // The link from the senior's device carries a one-time invite in the URL hash. It links an account; it is not a login.
 const inviteToken=/^[a-f0-9]{64}$/.test(location.hash.slice(1))?location.hash.slice(1):null;
@@ -9,7 +10,7 @@ async function familyApi(path,method='GET',body,headers={}){
  if(!r.ok){const d=await r.json().catch(()=>({}));const e=Error(d.error||'Request failed.');e.status=r.status;throw e;}
  return r;
 }
-function showTimeline(items){$('timeline').replaceChildren(...(items?.length?items.map(event=>Object.assign(document.createElement('li'),{textContent:`${new Date(event.at).toLocaleString()} · ${event.risk==='danger'?'Hang up now':'Be careful'} · ${event.reasons.join(', ')}`})):[Object.assign(document.createElement('li'),{textContent:'No warnings yet.'})]));}
+function showTimeline(items){renderTimeline($('timeline'),items,{label:async(eventId,label)=>{const r=await fetch('/api/family/timeline/label',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({eventId,label})});if(!r.ok)throw Error('Could not save');}});}
 function status(id,message){$(id).textContent=message;}
 function b64ToBytes(value){const padded=value.replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from(atob(padded),c=>c.charCodeAt(0));}
 
@@ -77,3 +78,6 @@ $('create-setup').onclick=async()=>{try{const d=await(await familyApi('/api/fami
 $('enroll-voice').onclick=async()=>{try{if(!$('voice-consent').checked)throw Error('Read and check the voice consent first.');const file=$('voice-file').files[0];if(!file)throw Error('Choose your own WAV voice sample.');const r=await familyApi('/api/family/voice','POST',file,{'Content-Type':file.type||'audio/wav','X-Voice-Consent':'true'});await r.json();status('voice-status','Voice enrolled for this temporary session. The senior must separately opt in.');}catch(e){status('voice-status',e.message);}};
 $('revoke-voice').onclick=async()=>{try{await familyApi('/api/family/voice','DELETE');status('voice-status','Voice revoked.');}catch(e){status('voice-status',e.message);}};
 $('approve-setup').onclick=async()=>{try{await familyApi('/api/family/setup/approve','POST',{code:$('setup-code').value.trim()});$('setup-code').value='';status('setup-status','Approved. Their device will finish setup by itself.');}catch(e){status('setup-status',e.message);}};
+
+// Batch 6: a family member can erase their own account.
+$('delete-account').onclick=async()=>{if(!window.confirm('Delete your family account? You will stop receiving warnings.'))return;try{await familyApi('/api/guardians/me','DELETE');showAuth('Your family account was deleted.');}catch(e){showAuth(e.message||'Could not delete. Please retry.');}};

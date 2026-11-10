@@ -2,3 +2,11 @@
 .urgent-alert{position:fixed;inset:0;z-index:1000;background:rgba(25,30,25,.82);display:grid;place-items:center;padding:18px}.urgent-card{width:min(100%,640px);max-height:95vh;overflow:auto;background:#fff3ee;color:#782b21;border:6px solid #9d3528;border-radius:18px;padding:clamp(24px,5vw,52px);text-align:center;box-shadow:0 24px 80px #0008}.urgent-card h2{font-size:clamp(42px,8vw,78px);line-height:1.1;margin:16px 0}.urgent-card p{font-size:clamp(20px,3vw,28px);margin:15px auto}.urgent-card .urgent-label{text-transform:uppercase;letter-spacing:.14em;font-weight:800;font-size:16px}.urgent-card button{display:block;width:100%;margin-top:20px;min-height:64px;font-size:20px;background:#8d2d22;border-color:#8d2d22}.urgent-card button.secondary{background:white;color:#782b21}.practice{padding:24px 28px;border-top:1px solid var(--line)}.practice button{margin:0 8px 8px 0}.family-main .side-section input[type=file],.family-main .side-section select,.family-main .side-section input[readonly]{display:block;margin:12px 0;max-width:100%}.family-main #setup-qr{display:block;max-width:220px;margin:12px 0}.family-main .side-section button{margin-top:12px}#remote-setup{background:#eaf0e5;border-radius:12px;padding:24px;margin:20px 0}#remote-setup button{margin:6px 8px 6px 0}@media(max-width:740px){.practice{padding:22px 18px}}
 
 .setup-code{font-size:2.5rem;font-weight:700;letter-spacing:.3em;font-variant-numeric:tabular-nums;margin:.5rem 0}
+
+.speaker{display:inline-block;font-size:.75rem;font-weight:600;padding:.05rem .45rem;border-radius:999px;margin-right:.4rem;border:1px solid currentColor}
+.speaker-senior{color:#2f6f4f}.speaker-caller{color:#9a3b1f}.speaker-unsure{color:#6b6a65}
+#enroll-progress{width:100%;margin-top:.5rem}
+.outcome-buttons{display:flex;flex-wrap:wrap;gap:.4rem;margin:.35rem 0 .6rem}.small-button{min-height:44px;padding:.35rem .7rem;font-size:.9rem}.outcome{color:#6b6a65}
+.danger-button{background:#9a3b1f;color:#fff;border:0;border-radius:8px;min-height:48px;padding:.5rem 1rem;margin-top:.4rem}
+#erase-confirm{display:block;min-height:44px;margin:.3rem 0;padding:.3rem .5rem;font-size:1rem}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}

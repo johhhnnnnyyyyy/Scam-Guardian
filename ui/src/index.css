@@ -1,0 +1,103 @@
+@import "tailwindcss";
+/* Self-hosted (the content security policy allows fonts from this server only). Atkinson Hyperlegible was designed
+   for readers with low vision; Literata for long reading on screens. Indian scripts fall back to Noto. */
+@import "@fontsource/atkinson-hyperlegible/latin-400.css";
+@import "@fontsource/atkinson-hyperlegible/latin-700.css";
+@import "@fontsource-variable/literata/wght.css";
+
+/* Theme: "warm and calm" (owner choice, 10 Nov 2026). Limestone paper, indigo-ink actions like a fountain pen, and
+   the three signal colours of an Indian household: leaf green, turmeric, sindoor red, used only for call safety.
+   Light theme only: one predictable look. Every text pair is at least 5:1 (most above 7:1); borders and focus
+   rings above 5:1 (checked 10 Nov 2026). */
+:root {
+  --background: #f2efe6;
+  --foreground: #1e2430;
+  --card: #fbfaf6;
+  --card-foreground: #1e2430;
+  --popover: #fbfaf6;
+  --popover-foreground: #1e2430;
+  --primary: #26346b;
+  --primary-foreground: #ffffff;
+  --secondary: #e4e6ee;
+  --secondary-foreground: #1e2430;
+  --muted: #eae7dd;
+  --muted-foreground: #4f5563;
+  --accent: #dde1ee;
+  --accent-foreground: #1e2430;
+  --destructive: #b42318;
+  --destructive-foreground: #ffffff;
+  --border: #d3cec0;
+  --input: #6f6a5e;
+  --ring: #8a5a00;
+  --radius: 1rem;
+  --safe: #dcebdd;
+  --safe-foreground: #1f4d30;
+  --careful: #f7e7c2;
+  --careful-foreground: #5c3b00;
+  --danger: #f8dad5;
+  --danger-foreground: #7a1a12;
+  --lamp-safe: #2e6a43;
+  --lamp-careful: #c98a1b;
+  --lamp-danger: #b42318;
+  --lamp-idle: #8b8678;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-safe: var(--safe);
+  --color-safe-foreground: var(--safe-foreground);
+  --color-careful: var(--careful);
+  --color-careful-foreground: var(--careful-foreground);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-sm: calc(var(--radius) - 8px);
+  --color-lamp-safe: var(--lamp-safe);
+  --color-lamp-careful: var(--lamp-careful);
+  --color-lamp-danger: var(--lamp-danger);
+  --color-lamp-idle: var(--lamp-idle);
+  --font-sans: "Atkinson Hyperlegible", "Noto Sans", "Noto Sans Devanagari", "Noto Sans Tamil", "Noto Sans Malayalam", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  --font-serif: "Literata Variable", "Noto Serif", "Noto Serif Devanagari", "Noto Serif Tamil", "Noto Serif Malayalam", Georgia, serif;
+}
+
+@layer base {
+  * { border-color: var(--border); }
+  html { font-size: 100%; -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-sans); font-size: 1rem; line-height: 1.55; font-synthesis: none; }
+  button, a, input, select, textarea, [role="tab"], [role="checkbox"] { touch-action: manipulation; }
+  :focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; border-radius: 6px; }
+  h1, h2, h3 { font-family: var(--font-serif); font-optical-sizing: auto; letter-spacing: -0.01em; }
+  ::selection { background: #dde1ee; color: #1e2430; }
+  [hidden] { display: none !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* The signal lamp. While listening it breathes slowly (a sign of life, low contrast); when the level changes it glows
+   once, strongly. The lamp element is re-mounted on every change, so the glow plays exactly once per change. */
+@keyframes lamp-breathe { 0%, 100% { box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 14%, transparent); } 50% { box-shadow: 0 0 0 12px color-mix(in srgb, currentColor 6%, transparent); } }
+@keyframes lamp-glow { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent); } 100% { box-shadow: 0 0 0 28px color-mix(in srgb, currentColor 0%, transparent); } }
+.lamp { box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 14%, transparent); animation: lamp-glow 1.1s ease-out 1; }
+.lamp.listening { animation: lamp-glow 1.1s ease-out 1, lamp-breathe 3.2s ease-in-out 1.1s infinite; }
+.listening-pulse { animation: lamp-breathe 3.2s ease-in-out infinite; }

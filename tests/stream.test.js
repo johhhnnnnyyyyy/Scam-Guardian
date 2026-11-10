@@ -6,7 +6,7 @@ import {createApp} from '../src/server.js';
 test('real local WebSocket forwards exact PCM, deduplicates transcripts and cleans up',async t=>{
  const upstream=new EventEmitter();upstream.readyState=WebSocket.OPEN;upstream.bufferedAmount=0;const frames=[];let terminated=false;
  upstream.send=b=>frames.push(Buffer.from(b));upstream.terminate=()=>{terminated=true;};
- const app=createApp({providers:{configured:true,connect(language,rate){assert.equal(language,'hi-IN');assert.equal(rate,16000);setTimeout(()=>upstream.emit('message',Buffer.from('{"type":"connected"}')),15);return upstream;}}});
+ const app=createApp({requireEnrollment:false,providers:{configured:true,connect(language,rate){assert.equal(language,'hi-IN');assert.equal(rate,16000);setTimeout(()=>upstream.emit('message',Buffer.from('{"type":"connected"}')),15);return upstream;}}});
  await new Promise(r=>app.server.listen(0,'127.0.0.1',r));t.after(()=>app.close());const port=app.server.address().port,base=`http://127.0.0.1:${port}`;
  const {id}=await(await fetch(base+'/api/sessions',{method:'POST',headers:{'Content-Type':'application/json',Origin:base},body:JSON.stringify({language:'hi-IN',mode:'live',consent:true})})).json();
  const client=new WebSocket(`ws://127.0.0.1:${port}/api/listen?session=${id}&rate=16000`,{origin:base});const events=[];client.on('message',b=>events.push(JSON.parse(b)));t.after(()=>client.terminate());

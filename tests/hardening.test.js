@@ -5,7 +5,7 @@ import WebSocket from 'ws';
 import { createApp } from '../src/server.js';
 
 async function start(t, config = {}) {
- const app = createApp({ gnaniKey: '', ...config });
+ const app = createApp({ gnaniKey: '', requireEnrollment: false, ...config });
  await new Promise(r => app.server.listen(0, '127.0.0.1', r));
  t.after(() => app.close());
  const port = app.server.address().port, base = `http://127.0.0.1:${port}`;
