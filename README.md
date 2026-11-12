@@ -10,14 +10,14 @@ A senior-first scam-call guardian built for the Gnani Great Indian AI Internship
 
 **MVP languages:** English, Hindi, Tamil and Malayalam, including code-mixed Hinglish, Tanglish and Manglish.
 
-**Status:** a complete local MVP. Everything that can be checked without real phones and real people has been built and tested. What remains is manual testing on real phones and the release gates in [PROGRESS.md](PROGRESS.md). It is not yet validated on real calls.
-
 ## How it works
 
 1. **Hearing the call:** browser microphone → server WebSocket → Gnani Prisma v3 realtime STT (code-mix mode), with reconnects, audio-gap tracking and 13-minute stream rotation.
 2. **Who is speaking (compulsory voice enrollment):** each turn is labelled *You*, *Caller* or *Unsure* from two acoustic tests (a phone-line frequency signature, and a voice match to the senior's 30-second enrollment), with the words and the AI model as a capped third vote. "You" needs both acoustic tests to agree, and a voice that sounds like the senior but arrives through the phone line is never trusted. The senior's own words count as weak evidence.
 3. **Scam detection:** data-only language packs (`src/packs/`) with clause splitting, negation and advice handling, dialogue acts (demand, reported, narration), precise scam patterns plus weighted evidence and an "uncertain" tier, and a compulsory evidence-grounded LLM that can confirm but never decide danger alone.
 4. **Warnings and family:** a senior-first interface (three big tabs, one main button, a status card that never relies on colour alone), a large full-screen alert, spoken warnings (cached, streamed), family accounts with reason-only timeline and Web Push, code word, trusted voice, outcome labels, evidence export and a 1930 / cybercrime.gov.in reporting draft.
+
+**Why didn't we act from the user's phone itself ?** As due to Android's policy listening directly to phone calls live require root access to the phone, given root access to an app essential apps like UPI apps wont work
 
 ## Contents
 
@@ -47,8 +47,6 @@ LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
 DATA_DIR=./data                       # keeps voice prints and family accounts across restarts
 ```
 
-- No LLM key yet? Set `ALLOW_RULES_ONLY=1` (development only; the server otherwise refuses to start).
-- No Gnani key? The rule engine, family view and evidence export still work; live listening, spoken warnings and the voice test need the key.
 - Without `DATA_DIR`, everything lives in memory, so **restarting the server forgets the saved voice and the family link**. Set it while testing.
 - `npm run serve` starts without rebuilding the interface; `npm run dev:ui` gives live UI editing and proxies the API on port 3000.
 
@@ -186,9 +184,3 @@ The test plan is in [docs/TESTING.md](docs/TESTING.md). Results and their limits
 | Voice or family link vanished after restart | Set `DATA_DIR=./data` so they persist, then record your voice again once. |
 | Family invite link does not open | The tunnel address changed, or the link is over 24 hours old. Make a new one. |
 | Nothing is transcribed | Check `GNANI_API_KEY`, the speaker volume and that the call is on speaker. |
-
-## Privacy and safety
-
-No audio is stored. Transcripts live only in memory for the session (at most 60 minutes). Family alerts carry tactic labels, never quotes or audio. The senior can download or delete everything from the main screen; family members can delete their own accounts. The notice is at `/privacy`, and the compliance checklist is in [docs/COMPLIANCE.md](docs/COMPLIANCE.md). The app cannot end a cellular call, block payments or identify callers, and "No warning detected" never means a caller is verified. **Get legal advice on transcribing the remote caller before any pilot.**
-
-Read [PRD.md](PRD.md), [DESIGN.md](DESIGN.md), [CONTEXT.md](CONTEXT.md), [docs/API.md](docs/API.md) and [docs/DECISIONS.md](docs/DECISIONS.md) before making product changes.
